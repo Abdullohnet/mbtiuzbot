@@ -16,7 +16,7 @@ bot   = telebot.TeleBot(TOKEN)
 
 PREMIUM_PRICE_STARS = 25
 PREMIUM_DAYS = 30
-PREMIUM_OWNER = "@xswnn"
+PREMIUM_OWNER = "@kayum_xll"
 
 conn = sqlite3.connect('mbtiuzbot.db', check_same_thread=False)
 cursor = conn.cursor()
