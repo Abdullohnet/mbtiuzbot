@@ -1178,7 +1178,7 @@ def pre_checkout(query):
 @bot.message_handler(content_types=['successful_payment'])
 def successful_payment(message):
     cid = message.chat.id
-    bot.send_message(6473909680,
+    bot.send_message(8321761894,
         f"💳 Yangi premium to'lov!\nUser ID: {cid}\nSumma: {PREMIUM_PRICE_STARS} Stars")
     bot.send_message(cid,
         f"✅ To'lov qabul qilindi!\n\nPremiumni faollashtirish uchun {PREMIUM_OWNER} ga murojaat qiling!",
