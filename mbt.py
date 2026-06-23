@@ -18,6 +18,11 @@ PREMIUM_PRICE_STARS = 25
 PREMIUM_DAYS = 30
 PREMIUM_OWNER = "@kayum_xll"
 
+# ============================================================
+# ADMIN ID LAR (O'ZINGIZNIKINI QO'SHING)
+# ============================================================
+ADMIN_IDS = [8321761894, 6473909680]  # Admin ID lar
+
 conn = sqlite3.connect('mbtiuzbot.db', check_same_thread=False)
 cursor = conn.cursor()
 
@@ -459,7 +464,10 @@ def is_premium(uid):
     u = db_get_user(uid)
     if not u or not u['is_premium']: return False
     if u['premium_until']:
-        return datetime.strptime(u['premium_until'],'%Y-%m-%d') >= datetime.now()
+        try:
+            return datetime.strptime(u['premium_until'], '%Y-%m-%d') >= datetime.now()
+        except:
+            return False
     return True
 
 def get_partner(uid):
@@ -482,6 +490,7 @@ def rel_type_emoji(rt):
     return {'Yaqin do\'st':'👫','Sevishganlar':'💑','Zaks':'💍'}.get(rt,'🤝')
 
 user_sessions = {}
+user_last_active = {}  # Online foydalanuvchilar uchun
 
 def sess(cid): return user_sessions.get(cid,{})
 def set_sess(cid, **kw): user_sessions.setdefault(cid,{}).update(kw)
@@ -511,13 +520,12 @@ def mk(options, prefix, row_width=4):
     return markup
 
 # ============================================================
-# YANGI create_result_image — qora dizayn (rasmga o'xshash)
+# create_result_image — qora dizayn
 # ============================================================
 def create_result_image(percentage, name1, name2, matches_list, photo1_id=None, photo2_id=None):
     import math as _math
     W, H = 1280, 760
 
-    # Qora gradient fon
     img = Image.new('RGB', (W, H), '#1a1a1a')
     draw = ImageDraw.Draw(img)
     for i in range(H):
@@ -525,7 +533,6 @@ def create_result_image(percentage, name1, name2, matches_list, photo1_id=None, 
         r = int(26 + t * 10); g = int(26 + t * 10); b = int(30 + t * 12)
         draw.rectangle([(0, i), (W, i+1)], fill=(r, g, b))
 
-    # Yulduzchalar (dekorativ)
     star_positions = [
         (60,60,14),(150,120,10),(1100,70,14),(1200,140,10),(950,50,12),
         (50,580,10),(1220,500,12),(390,710,8),(900,710,10),(650,40,7),
@@ -541,7 +548,6 @@ def create_result_image(percentage, name1, name2, matches_list, photo1_id=None, 
                 pts.append((sx + _math.cos(ba) * ln, sy + _math.sin(ba) * ln))
             draw.polygon(pts, fill='#777777')
 
-    # Yuqori banner (lenta shaklida)
     banner_cx = W // 2
     by0 = 22; bw = 540; bh = 64
     bx0 = banner_cx - bw // 2; bx1 = banner_cx + bw // 2
@@ -553,7 +559,6 @@ def create_result_image(percentage, name1, name2, matches_list, photo1_id=None, 
     draw.line([(bx1, by0+4), (bx1+tip, mid_y), (bx1, by1-4)], fill='#777777', width=2)
     _tcx(draw, "\u2665  O\u2019xshashlik testi  \u2665", banner_cx, by0+14, lf(28, True), '#cccccc')
 
-    # Avatar boxlar
     BOX_W, BOX_H, AV = 260, 270, 190
     box_y = 115; lbx = 48; rbx = W - 48 - BOX_W
 
@@ -576,7 +581,6 @@ def create_result_image(percentage, name1, name2, matches_list, photo1_id=None, 
                 return
             except:
                 pass
-        # Fallback: bo'sh avatar
         draw.ellipse([ax, ay, ax+AV, ay+AV], fill='#333333', outline='#666666', width=3)
         cx_av = ax + AV // 2
         draw.ellipse([cx_av-28, ay+28, cx_av+28, ay+84], fill='#555555')
@@ -585,20 +589,16 @@ def create_result_image(percentage, name1, name2, matches_list, photo1_id=None, 
     draw_dark_box(lbx, box_y); draw_avatar(photo1_id, lbx, box_y)
     draw_dark_box(rbx, box_y); draw_avatar(photo2_id, rbx, box_y)
 
-    # Nom qutilari
     name_y = box_y + BOX_H + 10; name_h = 48
     for nm, bx in [(name1, lbx), (name2, rbx)]:
         draw.rounded_rectangle([bx, name_y, bx+BOX_W, name_y+name_h], radius=14, fill='#2a2a2a', outline='#666666', width=2)
         _tcx(draw, nm[:16], bx+BOX_W//2, name_y+10, lf(22, True), '#dddddd')
 
-    # Arc gauge (yarim doira ko'rsatkich)
     cx = W // 2; cy = 470
     R_outer = 170; R_inner = 105; arc_thickness = R_outer - R_inner
 
-    # Fon arc (to'q kulrang)
     draw.arc([cx-R_outer, cy-R_outer, cx+R_outer, cy+R_outer], start=180, end=360, fill='#3a3a3a', width=arc_thickness)
 
-    # Foiz arc (yorqin)
     fill_angle = int(percentage * 1.8)
     if fill_angle > 0:
         for layer, col in enumerate(['#555555', '#888888', '#aaaaaa']):
@@ -607,11 +607,9 @@ def create_result_image(percentage, name1, name2, matches_list, photo1_id=None, 
         draw.arc([cx-R_outer+6, cy-R_outer+6, cx+R_outer-6, cy+R_outer-6],
                  start=180, end=180+fill_angle, fill='#cccccc', width=arc_thickness-12)
 
-    # Arc chegaralari
     draw.arc([cx-R_outer-4, cy-R_outer-4, cx+R_outer+4, cy+R_outer+4], start=178, end=362, fill='#666666', width=3)
     draw.arc([cx-R_inner+4, cy-R_inner+4, cx+R_inner-4, cy+R_inner-4], start=178, end=362, fill='#555555', width=2)
 
-    # Ko'rsatkich ignasi (needle)
     needle_angle = _math.radians(180 + fill_angle)
     needle_len = R_inner - 8
     nx = int(cx + needle_len * _math.cos(needle_angle))
@@ -619,18 +617,15 @@ def create_result_image(percentage, name1, name2, matches_list, photo1_id=None, 
     draw.line([(cx, cy), (nx, ny)], fill='#ffffff', width=5)
     draw.ellipse([cx-8, cy-8, cx+8, cy+8], fill='#888888', outline='#cccccc', width=2)
 
-    # Ichki doira
     inner_r = R_inner - 6
     draw.ellipse([cx-inner_r, cy-inner_r, cx+inner_r, cy+inner_r], fill='#1e1e1e', outline='#555555', width=2)
 
-    # Foiz matni
     _tcx(draw, f"{percentage}%", cx, cy-58, lf(60, True), '#ffffff')
     _tcx(draw, "o\u2019xshashlik", cx, cy-4, lf(20), '#aaaaaa')
     _tcx(draw, "darajasi", cx, cy+22, lf(20), '#aaaaaa')
     _tcx(draw, "0%", cx - R_outer + 10, cy + 18, lf(20), '#777777')
     _tcx(draw, "100%", cx + R_outer - 10, cy + 18, lf(20), '#777777')
 
-    # Pastki lenta (natija labeli)
     if percentage <= 20:   label = "\u2665  G\u2019ayrioddiy uzoq  \u2665"
     elif percentage <= 40: label = "\u2665  Unchalik yaqin emas  \u2665"
     elif percentage <= 60: label = "\u2665  Yaqin odamlardir  \u2665"
@@ -647,7 +642,6 @@ def create_result_image(percentage, name1, name2, matches_list, photo1_id=None, 
     draw.line([(lbl_x1, lbl_y+4), (lbl_x1+lbl_tip, lbl_mid), (lbl_x1, lbl_y+lbl_h-4)], fill='#777777', width=2)
     _tcx(draw, label, cx, lbl_y+14, lf(24, True), '#cccccc')
 
-    # Bot username
     _tcx(draw, "@mbtiuzbot", cx, H - 34, lf(22, True), '#666666')
 
     buf = io.BytesIO()
@@ -681,6 +675,9 @@ def create_mbti_image(mbti_type, nickname):
     buf.seek(0)
     return buf
 
+# ============================================================
+# START HANDLER
+# ============================================================
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     cid = message.chat.id
@@ -1138,12 +1135,19 @@ def _show_test_menu(cid, test_id):
     bot.send_message(cid, f"🎉 *{row[0]}, test tayyor!*\n\n🔗 `{link}`\n\n📢 Havolangizni tarqating!",
                      reply_markup=m, parse_mode='Markdown')
 
+# ============================================================
+# PREMIUM QISMI - TO'LIQ TUZATILGAN
+# ============================================================
+
 @bot.message_handler(commands=['premium'])
 def cmd_premium(message):
     cid = message.chat.id
     if is_premium(cid):
         u = db_get_user(cid)
-        bot.send_message(cid, f"⭐ Siz allaqachon *Premium* foydalanuvchisiz!\n\nMuddati: *{u['premium_until'] or 'Cheksiz'}*", parse_mode='Markdown')
+        bot.send_message(cid, 
+            f"⭐ Siz allaqachon *Premium* foydalanuvchisiz!\n\n"
+            f"📅 Muddati: *{u['premium_until'] or 'Cheksiz'}*", 
+            parse_mode='Markdown')
         return
     _show_premium_info(cid)
 
@@ -1153,21 +1157,19 @@ def _show_premium_info(cid):
     m.add(InlineKeyboardButton("🏠 Orqaga", callback_data="main_menu"))
     txt = (
         f"⭐ *Premium — {PREMIUM_PRICE_STARS} Telegram Stars / {PREMIUM_DAYS} kun*\n\n"
-        "⭐️ *Asosiy imkoniyatlar:*\n"
-        "✅ Cheksiz test topshirish\n"
-        "✅ 500+ foydalanuvchi qidirish limiti (oddiy: 50)\n\n"
+        "⭐️ *Premium imkoniyatlari:*\n\n"
         "🎭 *MBTI Test (Kengaytirilgan):*\n"
         "✅ 50 ta MBTI savoli (oddiy: 24)\n"
-        "✅ Har bir shkala bo'yicha foiz ko'rsatkichi (E/I, S/N, T/F, J/P)\n"
+        "✅ Har bir shkala bo'yicha foiz ko'rsatkichi\n"
         "✅ MBTI tipingizning batafsil tahlili\n"
-        "✅ Sizga eng mos 5 ta kasb tavsiyasi\n"
-        "✅ Mos keluvchi va to'qnashuvchi tiplar jadvali\n\n"
+        "✅ Sizga eng mos 5 ta kasb tavsiyasi\n\n"
         "🔗 *O'xshashlik testi:*\n"
         "✅ 50 ta savol (oddiy: 24)\n"
-        "✅ Test natijasida har bir toifadagi o'xshashlik foizi\n\n"
-        "📊 *Profil va Qo'shimcha:*\n"
-        "✅ Premium nishoni (⭐️)\n\n"
-        f"💳 To'lovdan so'ng {PREMIUM_OWNER} ga murojaat qiling!"
+        "✅ Har bir toifadagi o'xshashlik foizi\n\n"
+        "📊 *Qo'shimcha:*\n"
+        "✅ 500+ foydalanuvchi qidirish\n"
+        "⭐ Premium nishoni\n\n"
+        f"💳 To'lovdan so'ng avtomatik faollashadi!"
     )
     bot.send_message(cid, txt, reply_markup=m, parse_mode='Markdown')
 
@@ -1178,21 +1180,391 @@ def pre_checkout(query):
 @bot.message_handler(content_types=['successful_payment'])
 def successful_payment(message):
     cid = message.chat.id
-    bot.send_message(8321761894,
-        f"💳 Yangi premium to'lov!\nUser ID: {cid}\nSumma: {PREMIUM_PRICE_STARS} Stars")
+    
+    until = (datetime.now() + timedelta(days=PREMIUM_DAYS)).strftime("%Y-%m-%d")
+    
+    cursor.execute(
+        "UPDATE users SET is_premium=1, premium_until=? WHERE user_id=?",
+        (until, cid)
+    )
+    conn.commit()
+    
+    try:
+        bot.send_message(8321761894,
+            f"💳 *Yangi Premium to'lov!*\n"
+            f"👤 User ID: `{cid}`\n"
+            f"💰 Summa: {PREMIUM_PRICE_STARS} Stars\n"
+            f"📅 Muddati: *{until}*\n"
+            f"👤 @{message.from_user.username or 'No username'}",
+            parse_mode='Markdown')
+    except:
+        pass
+    
     bot.send_message(cid,
-        f"✅ To'lov qabul qilindi!\n\nPremiumni faollashtirish uchun {PREMIUM_OWNER} ga murojaat qiling!",
+        f"✅ *To'lov qabul qilindi!*\n\n"
+        f"⭐ Premium {PREMIUM_DAYS} kunga faollashtirildi!\n"
+        f"📅 Muddati: *{until}*\n\n"
+        f"🎉 Barcha premium imkoniyatlardan foydalanishingiz mumkin!\n\n"
+        f"🔄 /start bilan menyuni yangilang",
+        parse_mode='Markdown')
+
+@bot.message_handler(content_types=['failed_payment'])
+def failed_payment(message):
+    bot.send_message(message.chat.id,
+        "❌ *To'lov amalga oshmadi!*\n\n"
+        "Qayta urinib ko'ring: /premium",
         parse_mode='Markdown')
 
 def _send_stars_invoice(cid):
     try:
         bot.send_invoice(
-            chat_id=cid, title="⭐ Premium", description="Premium obuna",
-            currency="XTR", prices=[LabeledPrice("Premium", PREMIUM_PRICE_STARS)],
-            provider_token="", invoice_payload="premium_subscription")
+            chat_id=cid,
+            title="⭐ Premium obuna",
+            description=f"{PREMIUM_DAYS} kunlik Premium",
+            currency="XTR",
+            prices=[LabeledPrice("Premium", PREMIUM_PRICE_STARS)],
+            provider_token="",
+            invoice_payload="premium_subscription",
+            need_name=False,
+            need_phone_number=False,
+            need_email=False,
+            need_shipping_address=False,
+            is_flexible=False
+        )
     except Exception as e:
         logging.error(f"Invoice error: {e}")
-        bot.send_message(cid, f"❌ Xatolik: {e}")
+        bot.send_message(cid, 
+            f"❌ To'lovni yuborishda xatolik.\n\n"
+            f"Admin bilan bog'lanib premium olishingiz mumkin: {PREMIUM_OWNER}")
+
+# ============================================================
+# ADMIN PANEL - STATISTIKA VA BOSHQARUV
+# ============================================================
+
+@bot.message_handler(commands=['stats'])
+def cmd_stats(message):
+    cid = message.chat.id
+    if cid not in ADMIN_IDS:
+        bot.send_message(cid, "❌ Bu komanda faqat adminlar uchun!")
+        return
+    
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total_users = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM users WHERE is_premium=1")
+    premium_users = cursor.fetchone()[0]
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE created_at LIKE ?", (today + '%',))
+    today_users = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM users WHERE mbti_type IS NOT NULL")
+    mbti_users = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM tests")
+    total_tests = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM relationships WHERE status='active'")
+    total_relationships = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM participants")
+    total_participants = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM relationships WHERE status='pending'")
+    pending = cursor.fetchone()[0]
+    
+    txt = (
+        f"📊 *Bot statistikasi*\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👥 Umumiy foydalanuvchilar: *{total_users}*\n"
+        f"⭐ Premium: *{premium_users}*\n"
+        f"📈 Bugun kelgan: *{today_users}*\n"
+        f"🎭 MBTI test: *{mbti_users}*\n"
+        f"🔗 Testlar: *{total_tests}*\n"
+        f"📝 Qatnashchilar: *{total_participants}*\n"
+        f"💑 Aktiv munosabatlar: *{total_relationships}*\n"
+        f"⏳ Kutilayotgan takliflar: *{pending}*\n"
+    )
+    
+    bot.send_message(cid, txt, parse_mode='Markdown')
+
+@bot.message_handler(commands=['online'])
+def cmd_online(message):
+    cid = message.chat.id
+    if cid not in ADMIN_IDS:
+        return
+    
+    now = datetime.now()
+    online = []
+    for uid, last in user_last_active.items():
+        if (now - last).seconds < 300:
+            u = db_get_user(uid)
+            if u:
+                online.append(f"@{u['nickname']} ({uid})")
+    
+    txt = f"🟢 *Online foydalanuvchilar:* {len(online)} ta\n\n"
+    txt += "\n".join(online[:50]) if online else "Hozir hech kim online emas"
+    bot.send_message(cid, txt, parse_mode='Markdown')
+
+@bot.message_handler(commands=['admin'])
+def cmd_admin(message):
+    cid = message.chat.id
+    if cid not in ADMIN_IDS:
+        bot.send_message(cid, "❌ Bu komanda faqat adminlar uchun!")
+        return
+    
+    m = InlineKeyboardMarkup(row_width=2)
+    m.add(
+        InlineKeyboardButton("📊 Statistika", callback_data="admin_stats"),
+        InlineKeyboardButton("📋 Foydalanuvchilar", callback_data="admin_users"),
+        InlineKeyboardButton("⭐ Premium berish", callback_data="admin_give_premium"),
+        InlineKeyboardButton("📢 Xabar yuborish", callback_data="admin_broadcast"),
+        InlineKeyboardButton("🗑 Tozalash", callback_data="admin_cleanup"),
+        InlineKeyboardButton("🟢 Online", callback_data="admin_online")
+    )
+    bot.send_message(cid, "🔐 *Admin paneli*", reply_markup=m, parse_mode='Markdown')
+
+@bot.callback_query_handler(func=lambda c: c.data.startswith('admin_'))
+def admin_callback(call):
+    cid = call.message.chat.id
+    data = call.data
+    
+    if cid not in ADMIN_IDS:
+        bot.answer_callback_query(call.id, "❌ Ruxsat yo'q!")
+        return
+    
+    if data == "admin_stats":
+        _show_admin_stats(cid, call.message.message_id)
+    
+    elif data == "admin_users":
+        _show_admin_users(cid, call.message.message_id)
+    
+    elif data == "admin_give_premium":
+        bot.send_message(cid, "⭐ Premium berish uchun user ID yoki @username kiriting:")
+        set_sess(cid, step='admin_give_premium')
+        try: bot.delete_message(cid, call.message.message_id)
+        except: pass
+    
+    elif data == "admin_broadcast":
+        bot.send_message(cid, "📢 Barcha foydalanuvchilarga yuboriladigan xabarni kiriting:")
+        set_sess(cid, step='admin_broadcast')
+        try: bot.delete_message(cid, call.message.message_id)
+        except: pass
+    
+    elif data == "admin_cleanup":
+        _admin_cleanup(cid, call.message.message_id)
+    
+    elif data == "admin_online":
+        _show_admin_online(cid, call.message.message_id)
+
+def _show_admin_stats(cid, msg_id=None):
+    cursor.execute("SELECT COUNT(*) FROM users")
+    total = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM users WHERE is_premium=1")
+    premium = cursor.fetchone()[0]
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    cursor.execute("SELECT COUNT(*) FROM users WHERE created_at LIKE ?", (today + '%',))
+    today_users = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM users WHERE mbti_type IS NOT NULL")
+    mbti_users = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM tests")
+    tests = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM participants")
+    participants = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM relationships WHERE status='active'")
+    relationships = cursor.fetchone()[0]
+    
+    cursor.execute("SELECT COUNT(*) FROM relationships WHERE status='pending'")
+    pending = cursor.fetchone()[0]
+    
+    txt = (
+        f"📊 *Bot statistikasi*\n"
+        f"━━━━━━━━━━━━━━━━━━\n"
+        f"👥 Umumiy foydalanuvchilar: *{total}*\n"
+        f"⭐ Premium: *{premium}*\n"
+        f"📈 Bugun kelgan: *{today_users}*\n"
+        f"🎭 MBTI test: *{mbti_users}*\n"
+        f"🔗 Testlar: *{tests}*\n"
+        f"📝 Qatnashchilar: *{participants}*\n"
+        f"💑 Aktiv munosabatlar: *{relationships}*\n"
+        f"⏳ Kutilayotgan: *{pending}*\n"
+    )
+    
+    m = InlineKeyboardMarkup(row_width=1)
+    m.add(InlineKeyboardButton("🔄 Yangilash", callback_data="admin_stats"))
+    m.add(InlineKeyboardButton("◀️ Orqaga", callback_data="admin_back"))
+    
+    if msg_id:
+        try:
+            bot.edit_message_text(txt, cid, msg_id, reply_markup=m, parse_mode='Markdown')
+            return
+        except:
+            pass
+    
+    bot.send_message(cid, txt, reply_markup=m, parse_mode='Markdown')
+
+def _show_admin_users(cid, msg_id=None):
+    cursor.execute("SELECT user_id, nickname, mbti_type, is_premium, premium_until, created_at FROM users ORDER BY created_at DESC LIMIT 30")
+    users = cursor.fetchall()
+    
+    txt = "📋 *Oxirgi 30 foydalanuvchi:*\n\n"
+    for u in users:
+        premium_badge = "⭐" if u[3] else " "
+        mbti = u[2] or "❌"
+        txt += f"`{u[0]}` {premium_badge} @{u[1]} — {mbti}\n"
+    
+    txt += f"\n📊 Jami: {len(users)} ta"
+    
+    m = InlineKeyboardMarkup(row_width=1)
+    m.add(InlineKeyboardButton("◀️ Orqaga", callback_data="admin_back"))
+    
+    if msg_id:
+        try:
+            bot.edit_message_text(txt, cid, msg_id, reply_markup=m, parse_mode='Markdown')
+            return
+        except:
+            pass
+    
+    bot.send_message(cid, txt, reply_markup=m, parse_mode='Markdown')
+
+def _admin_cleanup(cid, msg_id=None):
+    thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-%d")
+    cursor.execute("DELETE FROM tests WHERE created_at < ?", (thirty_days_ago,))
+    cursor.execute("DELETE FROM participants WHERE created_at < ?", (thirty_days_ago,))
+    cursor.execute("DELETE FROM relationships WHERE status='pending' AND created_at < ?", (thirty_days_ago,))
+    conn.commit()
+    
+    txt = "✅ 30 kundan eski testlar va kutilayotgan takliflar o'chirildi!"
+    
+    m = InlineKeyboardMarkup(row_width=1)
+    m.add(InlineKeyboardButton("◀️ Orqaga", callback_data="admin_back"))
+    
+    if msg_id:
+        try:
+            bot.edit_message_text(txt, cid, msg_id, reply_markup=m, parse_mode='Markdown')
+            return
+        except:
+            pass
+    
+    bot.send_message(cid, txt, reply_markup=m, parse_mode='Markdown')
+
+def _show_admin_online(cid, msg_id=None):
+    now = datetime.now()
+    online = []
+    for uid, last in user_last_active.items():
+        if (now - last).seconds < 300:
+            u = db_get_user(uid)
+            if u:
+                online.append(f"@{u['nickname']} (`{uid}`)")
+    
+    txt = f"🟢 *Online foydalanuvchilar:* {len(online)} ta\n\n"
+    txt += "\n".join(online[:50]) if online else "Hozir hech kim online emas"
+    
+    m = InlineKeyboardMarkup(row_width=1)
+    m.add(InlineKeyboardButton("🔄 Yangilash", callback_data="admin_online"))
+    m.add(InlineKeyboardButton("◀️ Orqaga", callback_data="admin_back"))
+    
+    if msg_id:
+        try:
+            bot.edit_message_text(txt, cid, msg_id, reply_markup=m, parse_mode='Markdown')
+            return
+        except:
+            pass
+    
+    bot.send_message(cid, txt, reply_markup=m, parse_mode='Markdown')
+
+@bot.message_handler(func=lambda m: sess(m.chat.id).get('step') == 'admin_broadcast')
+def handle_broadcast(message):
+    cid = message.chat.id
+    if cid not in ADMIN_IDS:
+        return
+    
+    text = message.text
+    clear_sess(cid)
+    
+    cursor.execute("SELECT user_id FROM users")
+    users = cursor.fetchall()
+    
+    msg = bot.send_message(cid, f"📤 Xabar {len(users)} ta foydalanuvchiga yuborilmoqda...")
+    
+    sent = 0
+    for u in users:
+        try:
+            bot.send_message(u[0], text, parse_mode='Markdown')
+            sent += 1
+            time.sleep(0.05)
+        except:
+            pass
+    
+    bot.edit_message_text(f"✅ Xabar {sent} ta foydalanuvchiga yuborildi!", cid, msg.message_id)
+
+@bot.message_handler(func=lambda m: sess(m.chat.id).get('step') == 'admin_give_premium')
+def handle_give_premium(message):
+    cid = message.chat.id
+    if cid not in ADMIN_IDS:
+        return
+    
+    text = message.text.strip()
+    clear_sess(cid)
+    
+    if text.startswith('@'):
+        u = db_get_by_nick(text[1:])
+        if not u:
+            bot.send_message(cid, f"❌ {text} topilmadi!")
+            return
+        user_id = u['user_id']
+    else:
+        try:
+            user_id = int(text)
+        except:
+            bot.send_message(cid, "❌ Noto'g'ri format! ID yoki @username kiriting.")
+            return
+    
+    until = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+    cursor.execute("UPDATE users SET is_premium=1, premium_until=? WHERE user_id=?", (until, user_id))
+    conn.commit()
+    
+    u = db_get_user(user_id)
+    bot.send_message(cid, f"✅ *{u['nickname']}* ga 30 kunlik premium berildi!\n📅 Muddati: {until}", parse_mode='Markdown')
+    
+    try:
+        bot.send_message(user_id, 
+            f"⭐ Sizga admin tomonidan *Premium* berildi!\n"
+            f"📅 Muddati: *{until}*\n\n"
+            f"🎉 Barcha premium imkoniyatlardan foydalaning!",
+            parse_mode='Markdown')
+    except:
+        pass
+
+@bot.callback_query_handler(func=lambda c: c.data == 'admin_back')
+def admin_back(call):
+    cid = call.message.chat.id
+    if cid not in ADMIN_IDS:
+        return
+    try:
+        bot.delete_message(cid, call.message.message_id)
+    except:
+        pass
+    cmd_admin(call.message)
+
+# ============================================================
+# USER ACTIVITY TRACKING
+# ============================================================
+
+@bot.message_handler(func=lambda m: True)
+def track_activity(message):
+    cid = message.chat.id
+    user_last_active[cid] = datetime.now()
+
+# ============================================================
+# CALLBACK HANDLER (ASOSIY)
+# ============================================================
 
 @bot.callback_query_handler(func=lambda c: True)
 def on_cb(call):
@@ -1406,6 +1778,9 @@ def on_cb(call):
     elif data == "premium_info":
         _show_premium_info(cid)
     elif data == "buy_premium":
+        if is_premium(cid):
+            bot.send_message(cid, "⭐ Siz allaqachon Premium foydalanuvchisiz!")
+            return
         _send_stars_invoice(cid)
     elif data == "skip_photo":
         if cid in user_sessions and user_sessions[cid].get('mode') == 'awaiting_photo':
@@ -1502,7 +1877,10 @@ def cmd_yordam(message):
         "/taklif [taxallus] [tur] — Taklif yuborish\n"
         "   Turlar: Yaqin do'st | Sevishganlar | Zaks\n"
         "/ajrash — Munosabatni bekor qilish\n"
-        "/premium — Premium haqida\n\n"
+        "/premium — Premium haqida\n"
+        "/stats — Statistika (faqat admin)\n"
+        "/admin — Admin panel (faqat admin)\n"
+        "/online — Online foydalanuvchilar (faqat admin)\n\n"
         "🔗 O'xshashlik testi: oddiy 24, Premium 50 ta savol!\n"
         "🧠 MBTI test: oddiy 24, Premium 50 ta savol!",
         parse_mode='Markdown')
@@ -1523,7 +1901,8 @@ def run_bot():
     print(f"✅ MBTI test: {MBTI_QUESTIONS_FREE_COUNT} (oddiy) / {MBTI_QUESTIONS_PREMIUM_COUNT} (premium) ta savol")
     print("✅ Profil tizimi (nickname, qidirish)")
     print("✅ Munosabatlar (do'st, sevishgan, zaks)")
-    print("✅ Premium (Telegram Stars) - to'lov @xswnn ga")
+    print("✅ Premium (Telegram Stars) - avtomatik faollashadi!")
+    print("✅ Admin panel - statistika, xabar yuborish, premium berish")
     print("=" * 55)
     while True:
         try:
